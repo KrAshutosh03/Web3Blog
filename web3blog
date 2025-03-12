@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract DecentralizedBlog {
+    struct Post {
+        uint256 id;
+        address author;
+        string title;
+        string content;
+        uint256 timestamp;
+        bool published;
+    }
+
+    uint256 public nextPostId;
+    mapping(uint256 => Post) public posts;
+    mapping(address => uint256[]) public userPosts;
+
+    event PostCreated(uint256 indexed postId, address indexed author, string title);
+    event PostUpdated(uint256 indexed postId, string newTitle, string newContent);
+    event PostDeleted(uint256 indexed postId);
+    event PostPublished(uint256 indexed postId, bool published);
+
+    modifier onlyAuthor(uint256 _postId) {
+        require(posts[_postId].author == msg.sender, "Not the author");
+        _;
+    }
+
+    function createPost(string memory _title, string memory _content) external {
+        require(bytes(_title).length > 0, "Title cannot be empty");
+        require(bytes(_content).length > 0, "Content cannot be empty");
+
+        posts[nextPostId] = Post(nextPostId, msg.sender, _title, _content, block.timestamp, false);
+        userPosts[msg.sender].push(nextPostId);
+
+        emit PostCreated(nextPostId, msg.sender, _title);
+        nextPostId++;
+    }
+
+    function updatePost(uint256 _postId, string memory _newTitle, string memory _newContent) external onlyAuthor(_postId) {
+        require(bytes(_newTitle).length > 0, "Title cannot be empty");
+        require(bytes(_newContent).length > 0, "Content cannot be empty");
+
+        posts[_postId].title = _newTitle;
+        posts[_postId].content = _newContent;
+
+        emit PostUpdated(_postId, _newTitle, _newContent);
+    }
+
+    function deletePost(uint256 _postId) external onlyAuthor(_postId) {
+        delete posts[_postId];
+
+        emit PostDeleted(_postId);
+    }
+
+    function togglePublish(uint256 _postId) external onlyAuthor(_postId) {
+        posts[_postId].published = !posts[_postId].published;
+
+        emit PostPublished(_postId, posts[_postId].published);
+    }
+
+    function getUserPosts(address _user) external view returns (uint256[] memory) {
+        return userPosts[_user];
+    }
+
+    function getPost(uint256 _postId) external view returns (Post memory) {
+        require(posts[_postId].author != address(0), "Post does not exist");
+        return posts[_postId];
+    }
+}
